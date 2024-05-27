@@ -123,7 +123,7 @@ def main():
         st.write("Select AMS search_terms:")
         col1, col2=st.columns(2)
         with col1:
-            selected_keywords = st.multiselect("Keywords", options=st.session_state.keywords)
+            selected_keywords = st.multiselect("search_terms", options=st.session_state.keywords ,placeholder ="Select maximum of Six Search_terms", max_selections =6)
         with col2:
             new_keyword = st.text_input("Add keyword:")
             if st.button("Add Keyword"):
