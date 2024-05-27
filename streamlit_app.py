@@ -23,7 +23,7 @@ def api_1(title):
     headers = {"Authorization": "Bearer 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"}
     payload={
     "inputs": prompt,
-    "parameters": {"return_full_text":False, "max_new_tokens": 2048},
+    "parameters": {"return_full_text":False, "max_new_tokens": 1024},
     "options":{"wait_for_model": True}
     }
     response = requests.post(API_URL_ner, headers=headers, json=payload)
