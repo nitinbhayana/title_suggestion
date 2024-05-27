@@ -33,7 +33,7 @@ def api_1(title):
     output = re.sub(' ": "', '": "', output)
     output_dict = eval(output)
     return output_dict
-api_1("hp laptop")
+
                    
 def api_2(title):
     # Simulate a delay for the API call
