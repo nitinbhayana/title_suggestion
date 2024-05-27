@@ -107,9 +107,9 @@ def main():
 
         col1, col2 ,col3 = st.columns(3)
         with col1:
-            new_key = st.text_input("",placeholder="Attribute")
+            new_key = st.text_input("",placeholder="Attribute", label_visibility ='collapsed')
         with col2:
-            new_value = st.text_input("",placeholder="Attribute Value")
+            new_value = st.text_input("",placeholder="Attribute Value", label_visibility ='collapsed')
         with col3:
             
             if st.button("Add"):
@@ -120,7 +120,7 @@ def main():
                         st.session_state.api_1_response1[new_key] = [new_value]
                     st.experimental_rerun()
 
-        st.write("Select keywords:")
+        st.write("Select AMS search_terms:")
         col1, col2=st.columns(2)
         with col1:
             selected_keywords = st.multiselect("Keywords", options=st.session_state.keywords)
