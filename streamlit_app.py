@@ -2,6 +2,8 @@ import streamlit as st
 import time
 import random
 
+
+
 def api_1(title):
     # Simulate a delay for the API call
     time.sleep(2)  # Simulate a 2-second delay
@@ -27,24 +29,23 @@ def api_5(titles):
     time.sleep(2)  # Simulate a 2-second delay
     return [round(random.uniform(0, 1), 2) for _ in titles]
 
-
-def title_annotated(title_input,ner_result):
+def title_annotated(title_input, ner_result):
     annotated_title = title_input
-        
+
     # Sort entities by their start position to handle them in the correct sequence
     entities = sorted(ner_result, key=lambda x: title_input.lower().find(x.lower()))
-    
+
     # Apply HTML tags to each entity found in the title
     for entity in entities:
         start_index = title_input.lower().find(entity.lower())
         if start_index != -1:  # Only proceed if the entity is found
             original_text = title_input[start_index:start_index + len(entity)]
             # Replace the original text with the annotated version in the title
-            annotated_title = annotated_title.replace(original_text, 
-                f"{original_text}<span style='color:green;'>({ner_result[entity]})</span>", 1)
-    
-    return annotated_title
+            annotated_title = annotated_title.replace(original_text,
+                                                      f"{original_text}<span style='color:green;'>({ner_result[entity]})</span>",
+                                                      1)
 
+    return annotated_title
 
 def attribute_dict(data_dict):
     try:
@@ -58,9 +59,7 @@ def attribute_dict(data_dict):
                 inverted_dict[value] = [key]
         return inverted_dict
     except Exception as e:
-        #print(f"\nAn error occurred: {e}\n{input_string}")
-        return({})
-
+        return ({})
 
 def reset_state():
     st.session_state.clear()
@@ -78,17 +77,15 @@ def main():
         if st.button("Submit"):
             with st.spinner("Analysing Title..."):
                 st.session_state.title = title
-                st.session_state.api_1_response = (api_1(title))
+                st.session_state.api_1_response = api_1(title)
                 st.session_state.api_1_response1 = attribute_dict(st.session_state.api_1_response)
             st.session_state.step = 2
 
     # Step 2: Display title and API 1 response
     if st.session_state.step == 2:
         st.write(f"Title: {st.session_state.title}")
-        annotated_title=title_annotated(st.session_state.title, (st.session_state.api_1_response))
-        # Display the fully annotated title using HTML to allow styling
+        annotated_title = title_annotated(st.session_state.title, st.session_state.api_1_response)
         st.markdown(annotated_title, unsafe_allow_html=True)
-        #st.write("API 1 Response:", st.session_state.api_1_response)
         with st.spinner("Checking Product Category..."):
             st.session_state.category = api_2(st.session_state.title)
         with st.spinner("Collecting AMS search_terms..."):
@@ -97,58 +94,43 @@ def main():
 
     # Step 3: Display keywords and dictionary response with checkboxes
     if st.session_state.step == 3:
-        #st.write(f"The Product is Categorized under: {st.session_state.category}")
-        st.write("This product is categorized under <span style='font-weight:bold; color:yellow'>", st.session_state.category, "</span>", unsafe_allow_html=True)
-
+        st.write("This product is categorized under <span style='font-weight:bold; color:blue'>", st.session_state.category, "</span>", unsafe_allow_html=True)
 
         st.write("Select Product Attributes:")
         selected_dict = {}
-        
+
         for key, value in st.session_state.api_1_response1.items():
             selected_dict[key] = []
             for item in value:
                 if st.checkbox(f"{key}: {item}", key=f"{key}-{item}"):
-                  selected_dict[key].append(item)
+                    selected_dict[key].append(item)
 
-
-            # if st.checkbox(f"{value}: {key}", key=key):
-            #     selected_dict[key] = value
-
-        col1, col2 = st.columns(2)
+        col1, col2 ,col3 = st.columns(3)
         with col1:
-            new_key = st.text_input("Add new Attribute:")
+            new_key = st.text_input("",placeholder="Attribute")
         with col2:
-            new_value = st.text_input("Attribute Value:")
-        if st.button("Add Key-Value Pair"):
-            if new_key and new_value:
-                if new_key in st.session_state.api_1_response1 and isinstance(st.session_state.api_1_response1[key], list):
-                    st.session_state.api_1_response1[new_key].append(new_value)
-                else:
-                    st.session_state.api_1_response1[new_key] = [new_value]
-                #st.session_state.api_1_response1[new_key] = [new_value]
-                st.experimental_rerun()
-        
-        col1, col2, col3, col4 = st.columns(4)
-        columns = [col1, col2, col3, col4]
-        
+            new_value = st.text_input("",placeholder="Attribute Value")
+        with col3:
+            
+            if st.button("Add"):
+                if new_key and new_value:
+                    if new_key in st.session_state.api_1_response1 and isinstance(st.session_state.api_1_response1[key], list):
+                        st.session_state.api_1_response1[new_key].append(new_value)
+                    else:
+                        st.session_state.api_1_response1[new_key] = [new_value]
+                    st.experimental_rerun()
+
         st.write("Select keywords:")
-        selected_keywords = []
-        for i, keyword in enumerate(st.session_state.keywords):
-            with columns[i % 4]:
-                if st.checkbox(keyword, key=keyword):
-                    selected_keywords.append(keyword)
+        col1, col2=st.columns(2)
+        with col1:
+            selected_keywords = st.multiselect("Keywords", options=st.session_state.keywords)
+        with col2:
+            new_keyword = st.text_input("Add keyword:")
+            if st.button("Add Keyword"):
+                if new_keyword:
+                    st.session_state.keywords.append(new_keyword)
+                    st.experimental_rerun()
 
-
-        # for keyword in st.session_state.keywords:
-        #     if st.checkbox(keyword, key=keyword):
-        #         selected_keywords.append(keyword)
-
-        new_keyword = st.text_input("Add new keyword:")
-        if st.button("Add Keyword"):
-            if new_keyword:
-                st.session_state.keywords.append(new_keyword)
-                st.experimental_rerun()
-        
         if st.button("Suggest Titles"):
             with st.spinner("Calling API 4..."):
                 new_selected_dict = {key: value for key, value in selected_dict.items() if len(value) != 0}
