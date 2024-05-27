@@ -1,7 +1,8 @@
 import streamlit as st
 import time
 import random
-
+import requests
+import re
 
 
 def api_1(title):
