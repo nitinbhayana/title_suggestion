@@ -124,7 +124,7 @@ def main():
 
         st.write("Select Product Attributes:")
         selected_dict = {}
-
+        st.write(st.session_state.api_1_response1)
         for key, value in st.session_state.api_1_response1.items():
             selected_dict[key] = []
             for item in value:
