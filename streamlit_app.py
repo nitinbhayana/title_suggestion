@@ -114,8 +114,11 @@ def main():
             # if st.checkbox(f"{value}: {key}", key=key):
             #     selected_dict[key] = value
 
-        new_key = st.text_input("Add new key:")
-        new_value = st.text_input("Add new value:")
+        col1, col2 = st.columns(2)
+        with col1:
+            new_key = st.text_input("Add new Attribute:")
+        with col2:
+            new_value = st.text_input("Attribute Value:")
         if st.button("Add Key-Value Pair"):
             if new_key and new_value:
                 if new_key in st.session_state.api_1_response1 and isinstance(st.session_state.api_1_response1[key], list):
