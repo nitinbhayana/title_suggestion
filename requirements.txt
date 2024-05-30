@@ -1,2 +1,3 @@
 angle_emb
 faiss_cpu
+openai
