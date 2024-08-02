@@ -5,6 +5,11 @@ import requests
 import re
 from openai import OpenAI
 import json
+from textblob import TextBlob, Word
+from spellchecker import SpellChecker
+from collections import Counter
+import re
+import math
 
 BASE_URL = "http://91.203.132.18:8085"
 client = OpenAI(
@@ -107,6 +112,102 @@ def api_5(titles, keywords):
     scores = response.json()
     return scores
 
+def len_title(title):
+    x = len(title)
+    mean = 190.5
+    sigma = 80
+    gaussian_value = math.exp(-((x - mean) ** 2) / (2 * sigma ** 2))
+    
+    if x < 25 or x > 250:
+        return 0
+    return round(gaussian_value, 2)
+
+def bell_curve(x):
+    mu = 3.5
+    sigma = 2.116
+    return  math.exp(-((x - mu) ** 2) / (2 * sigma ** 2))
+
+def count_non_alphanumeric(title):
+    """Counts the number of non-alphanumeric characters in the title."""
+    non_alnum_count = len(re.findall(r'[^a-zA-Z0-9\s&]', title))
+    cleaned_title = re.sub(r'[^a-zA-Z0-9\s&]', '', title)
+    return max(1,non_alnum_count), cleaned_title
+
+def process_conjunctions(title):
+    """Counts the number of conjunctions in the title and returns the title without conjunctions."""
+    blob = TextBlob(title)
+    tags = blob.tags
+    conjunctions = [word for word, pos in tags if pos in ['CC', 'IN','CD'] ]
+    title_without_conjunctions = ' '.join([word for word in blob.words if word not in conjunctions and len(word)>1])
+    return max(1,len(conjunctions)), title_without_conjunctions
+
+def count_word_cases(title):
+    
+    blob = TextBlob(title)
+    words = blob.words
+    
+    total_words = len(words)
+    title_case_words = sum(1 for word in words if word.istitle())
+    lower_case_words = sum(1 for word in words if word.islower())
+    capitalized_words = sum(1 for word in words if word.isupper())
+    
+    return total_words, title_case_words, lower_case_words, capitalized_words
+
+
+def count_duplicate_words(title):
+    """Counts the number of duplicate words in the title, both directly and using lemmatization."""
+    blob = TextBlob(title)
+    words = blob.words.lower()
+    
+    # Count duplicates directly
+    word_counts = Counter(words)
+    direct_duplicates = {word: count for word, count in word_counts.items() if count > 1}
+    
+    # Count duplicates using lemmatization
+    lemmatized_words = [Word(word).lemmatize() for word in words]
+    lemmatized_word_counts = Counter(lemmatized_words)
+    lemmatized_duplicates = {word: count for word, count in lemmatized_word_counts.items() if count > 1}
+    
+    return direct_duplicates, lemmatized_duplicates
+
+def check_spelling_error(title, brand_name):
+    custom_dict = set(brand_name.lower().split())
+    
+   
+    spell = SpellChecker()
+    spell.word_frequency.load_words(custom_dict)
+    
+    
+    words = title.split()
+    misspelled_words = [word for word in words if spell.correction(word.lower()) != word.lower()]
+    return(misspelled_words)
+
+def duplicate_spell_error_score(num_errors):
+    # Ensure the number of errors does not produce a negative score
+    return max(0.4, 1 - 0.15 * num_errors)
+
+def scores(title, brand_name):
+    
+    non_alnum_count, cleaned_title = count_non_alphanumeric(title)
+    conjunction_count, title_without_conjunctions = process_conjunctions(cleaned_title)
+    total_words, title_case_words, lower_case_words, capitalized_words=count_word_cases(title_without_conjunctions)
+    direct_duplicates, lemmatized_duplicates=count_duplicate_words(title_without_conjunctions)
+    spell_errors=len(check_spelling_error(title_without_conjunctions, brand_name))
+
+    len_score=len_title(title)
+    cunjuction_use_score=0.5*(bell_curve(total_words/non_alnum_count))+0.5*(bell_curve(total_words/conjunction_count))
+    casing_score=max(0, title_case_words / total_words- 0.05* capitalized_words)
+    ducplicay_score=duplicate_spell_error_score(len(lemmatized_duplicates.keys()))
+    spell_error_score=duplicate_spell_error_score(spell_errors)
+    return (
+        {"len_score":round(len_score, 2),
+        "cunjuction_use_score":round(cunjuction_use_score, 2),
+        "casing_score":round(casing_score, 2),
+        "ducplicay_score":round(ducplicay_score, 2),
+        "spell_error_score":round(spell_error_score, 2)
+        }
+    )
+
 def title_annotated(title_input, ner_result):
     annotated_title = title_input
 
@@ -176,6 +277,7 @@ def main():
         st.session_state.step = 1
 
     if st.session_state.step == 1:
+        st.session_state.new_keywords = []
         title = st.text_input("Enter the product title:")
         # title = title.replace('"', "'")
         if st.button("Submit"):
@@ -228,25 +330,30 @@ def main():
                     st.experimental_rerun()
 
         st.write("Select AMS search_terms:")
+        sorted_keywords_with_sv = sorted(st.session_state.keywords_with_sv, key=lambda x: x['search_volume'], reverse=True)
+        st.session_state.display_keywords = [f"{index['input_search_term']} ({index['search_volume']})" for index in sorted_keywords_with_sv]
+        selected_display_keywords = st.multiselect("search_terms", options=st.session_state.display_keywords ,placeholder ="Select maximum of Six Search_terms", max_selections =6)
+        keyword_pattern = re.compile(r"^(.*) \(\d+\)$")
+        selected_keywords = [keyword_pattern.match(opt).group(1) for opt in selected_display_keywords if keyword_pattern.match(opt)]
+        
         col1, col2=st.columns(2)
         with col1:
-            sorted_keywords_with_sv = sorted(st.session_state.keywords_with_sv, key=lambda x: x['search_volume'], reverse=True)
-            st.sesstion_state.display_keywords = [f"{index['input_search_term']} ({index['search_volume']})" for index in sorted_keywords_with_sv]
-            selected_display_keywords = st.multiselect("search_terms", options=st.session_state.display_keywords ,placeholder ="Select maximum of Six Search_terms", max_selections =6)
-            keyword_pattern = re.compile(r"^(.*) \(\d+\)$")
-            selected_keywords = [keyword_pattern.match(opt).group(1) for opt in selected_display_keywords if keyword_pattern.match(opt)]
-        with col2:
             new_keyword = st.text_input("Add keyword:")
             if st.button("Add Keyword"):
-                if new_keyword:
-                    st.session_state.keywords.append(new_keyword)
+                if new_keyword not in st.session_state.new_keywords:
+                    st.session_state.new_keywords.append({"keyword": new_keyword, "value": True})
                     st.experimental_rerun()
+        with col2:
+            st.write("Update Keywords")
+            for item in st.session_state.new_keywords:
+                item["value"] = st.checkbox(item["keyword"], value=item["value"])
 
         if st.button("Suggest Titles"):
             with st.spinner("Suggesting New Titles..."):
                 new_selected_dict = {key: value for key, value in selected_dict.items() if len(value) != 0}
+                selected_new_keywords = [item["keyword"] for item in st.session_state.new_keywords if item["value"]]
                 st.session_state.selected_dict = new_selected_dict
-                st.session_state.selected_keywords = selected_keywords
+                st.session_state.selected_keywords = selected_keywords + selected_new_keywords
                 st.session_state.new_titles = api_4(selected_dict, selected_keywords)
             st.session_state.step = 4
 
@@ -257,8 +364,8 @@ def main():
         st.write(f"Original Title:\n{st.session_state.title}")
         st.write("New Product Titles:")
         new_titles = st.session_state.new_titles
-        for index,title in enumarate(new_titles):
-            st.write(f"{index+1}. {title}")
+        for index,title in enumerate(new_titles):
+            st.write(f"\n{index+1}. {title}")
 
         titles = [st.session_state.title] + st.session_state.new_titles
         keywords = st.session_state.keywords
@@ -268,14 +375,41 @@ def main():
                 st.session_state.scores = api_5(titles, keywords)
             st.session_state.step = 5
 
-# Step 5: Display scores for each title on a new screen
+    # Step 5: Display scores for each title on a new screen
     if st.session_state.step == 5:
         st.write("Product Titles with Scores:")
         # titles = [st.session_state.title] + st.session_state.new_titles
         title_scores = st.session_state.scores
-        for title_score in title_scores:
-            st.write(f"{title_score['title']}: {title_score['score']}")
-            st.progress(title_score['score'])
+        for index,title_score in enumerate(title_scores):
+            brand_ = st.session_state.api_1_response1['brand'][0] if len(st.session_state.api_1_response1['brand'])!=0 else ""
+            title_ = f"{title_score['title']}"
+            gen_score = scores(title_, brand_)
+            st.write(f"<span style='color:orange;'>\n{index+1}. {title_}</span>",unsafe_allow_html=True)
+            col1, col2, col3, col4, col5, col6=st.columns(6)
+            with col1:
+                st.write("Relevance Score")
+                st.progress(title_score['score'])
+                st.write(f"{title_score['score']}")
+            with col2:
+                st.write("Length Score")
+                st.progress(gen_score['len_score'])
+                st.write(f"{gen_score['len_score']}")
+            with col3:
+                st.write("Conjuction Use Score")
+                st.progress(gen_score['cunjuction_use_score'])
+                st.write(f"{gen_score['cunjuction_use_score']}")
+            with col4:
+                st.write("Casing Score")
+                st.progress(gen_score['casing_score'])
+                st.write(f"{gen_score['casing_score']}")
+            with col5:
+                st.write("Duplicacy Score")
+                st.progress(gen_score['ducplicay_score'])
+                st.write(f"{gen_score['ducplicay_score']}")
+            with col6:
+                st.write("Spell/Grammer Error Score")
+                st.progress(gen_score['spell_error_score'])
+                st.write(f"{gen_score['spell_error_score']}")
 
     # Add Reset button
     if st.button("Reset"):
