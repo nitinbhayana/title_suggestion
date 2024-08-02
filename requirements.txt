@@ -3,3 +3,4 @@ faiss_cpu
 openai
 textblob
 spellchecker
+indexer
