@@ -354,7 +354,8 @@ def main():
                 selected_new_keywords = [item["keyword"] for item in st.session_state.new_keywords if item["value"]]
                 st.session_state.selected_dict = new_selected_dict
                 st.session_state.selected_keywords = selected_keywords + selected_new_keywords
-                st.session_state.new_titles = api_4(selected_dict, selected_keywords)
+                #st.session_state.new_titles = api_4(selected_dict, selected_keywords)
+                st.write(selected_dict, selected_keywords)
             st.session_state.step = 4
 
     # Step 4: Display original and new product titles only after clicking "Suggest Titles"
